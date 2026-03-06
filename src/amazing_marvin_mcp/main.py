@@ -16,13 +16,53 @@ from .analytics import (
     get_productivity_summary_for_time_range as get_productivity_summary_for_time_range_impl,
 )
 from .api import create_api_client
+from .documents import (
+    get_document as get_document_impl,
+)
+from .documents import (
+    update_document_raw as update_document_raw_impl,
+)
+from .documents import (
+    update_task_friendly as update_task_friendly_impl,
+)
+from .events import (
+    add_event as add_event_impl,
+)
+from .events import (
+    get_today_time_blocks as get_today_time_blocks_impl,
+)
+from .habits import (
+    get_habit as get_habit_impl,
+)
+from .habits import (
+    get_habits as get_habits_impl,
+)
+from .habits import (
+    record_habit as record_habit_impl,
+)
+from .habits import (
+    undo_habit as undo_habit_impl,
+)
+from .models import TaskUpdateRequest
 from .projects import (
     create_project_with_tasks as create_project_impl,
 )
 from .projects import (
     get_project_overview as get_project_overview_impl,
 )
+from .reminders import (
+    delete_reminders as delete_reminders_impl,
+)
+from .reminders import (
+    set_reminders as set_reminders_impl,
+)
 from .response_models import StandardResponse
+from .rewards import (
+    spend_reward_points as spend_reward_points_impl,
+)
+from .rewards import (
+    unclaim_reward_points as unclaim_reward_points_impl,
+)
 from .tasks import (
     batch_create_tasks as batch_create_tasks_impl,
 )
@@ -881,6 +921,393 @@ async def get_completed_tasks_for_date(
     except Exception as e:
         logger.exception("Failed to get completed tasks for %s", date)
         return create_error_response(e, "/doneItems", debug, start_time)
+
+
+@mcp.tool()
+async def get_document(doc_id: str, debug: bool = False) -> StandardResponse:
+    """Read any Amazing Marvin document by ID (requires full access token).
+
+    Args:
+        doc_id: Document/task/project ID to read
+    """
+    start_time = time.time()
+    try:
+        api_client = create_api_client()
+        result = get_document_impl(api_client, doc_id)
+
+        return create_simple_response(
+            data=result,
+            summary_text=f"Retrieved document {doc_id}",
+            api_endpoint="/doc",
+            api_calls_made=1,
+            debug=debug,
+            start_time=start_time,
+        )
+    except Exception as e:
+        logger.exception("Failed to get document %s", doc_id)
+        return create_error_response(e, "/doc", debug, start_time)
+
+
+@mcp.tool()
+async def update_task(
+    item_id: str,
+    title: str | None = None,
+    due_date: str | None = None,
+    scheduled_date: str | None = None,
+    note: str | None = None,
+    label_ids: list[str] | None = None,
+    priority: str | None = None,
+    parent_id: str | None = None,
+    is_starred: bool | None = None,
+    is_frogged: bool | None = None,
+    time_estimate: int | None = None,
+    backburner: bool | None = None,
+    debug: bool = False,
+) -> StandardResponse:
+    """Update a task in Amazing Marvin (requires full access token).
+
+    Args:
+        item_id: Task ID to update
+        title: New title
+        due_date: Due date in YYYY-MM-DD format
+        scheduled_date: Scheduled date in YYYY-MM-DD format (maps to 'day' in Marvin)
+        note: Task notes/description
+        label_ids: List of label IDs to assign
+        priority: Priority level
+        parent_id: Parent project/task ID
+        is_starred: Star the task
+        is_frogged: Frog the task (eat-the-frog methodology)
+        time_estimate: Time estimate in minutes
+        backburner: Move to backburner
+    """
+    start_time = time.time()
+    try:
+        api_client = create_api_client()
+        update = TaskUpdateRequest(
+            item_id=item_id,
+            title=title,
+            due_date=due_date,
+            scheduled_date=scheduled_date,
+            note=note,
+            label_ids=label_ids,
+            priority=priority,
+            parent_id=parent_id,
+            is_starred=is_starred,
+            is_frogged=is_frogged,
+            time_estimate=time_estimate,
+            backburner=backburner,
+        )
+        result = update_task_friendly_impl(api_client, update)
+
+        return create_simple_response(
+            data=result,
+            summary_text=f"Updated task {item_id}",
+            api_endpoint="/doc/update",
+            api_calls_made=1,
+            debug=debug,
+            start_time=start_time,
+        )
+    except Exception as e:
+        logger.exception("Failed to update task %s", item_id)
+        return create_error_response(e, "/doc/update", debug, start_time)
+
+
+@mcp.tool()
+async def update_document_raw(
+    item_id: str, setters: dict, debug: bool = False
+) -> StandardResponse:
+    """Update any Amazing Marvin document with raw setters (power users, requires full access token).
+
+    Args:
+        item_id: Document ID to update
+        setters: Raw setters dict in Marvin format (e.g. {"$set": {"title": "New Title"}})
+    """
+    start_time = time.time()
+    try:
+        api_client = create_api_client()
+        result = update_document_raw_impl(api_client, item_id, setters)
+
+        return create_simple_response(
+            data=result,
+            summary_text=f"Updated document {item_id} with raw setters",
+            api_endpoint="/doc/update",
+            api_calls_made=1,
+            debug=debug,
+            start_time=start_time,
+        )
+    except Exception as e:
+        logger.exception("Failed to update document %s", item_id)
+        return create_error_response(e, "/doc/update", debug, start_time)
+
+
+@mcp.tool()
+async def add_event(
+    title: str,
+    start: str,
+    length_minutes: int,
+    note: str | None = None,
+    debug: bool = False,
+) -> StandardResponse:
+    """Create a calendar event in Amazing Marvin.
+
+    Args:
+        title: Event title
+        start: Start time as ISO 8601 datetime string
+        length_minutes: Duration in minutes
+        note: Optional event notes
+    """
+    start_time = time.time()
+    try:
+        api_client = create_api_client()
+        result = add_event_impl(api_client, title, start, length_minutes, note)
+
+        return create_simple_response(
+            data=result,
+            summary_text=f"Created event: {title}",
+            api_endpoint="/addEvent",
+            api_calls_made=1,
+            debug=debug,
+            start_time=start_time,
+        )
+    except Exception as e:
+        logger.exception("Failed to create event '%s'", title)
+        return create_error_response(e, "/addEvent", debug, start_time)
+
+
+@mcp.tool()
+async def get_today_time_blocks(
+    date: str | None = None, debug: bool = False
+) -> StandardResponse:
+    """Get time blocks for a date (defaults to today).
+
+    Args:
+        date: Optional date in YYYY-MM-DD format
+    """
+    start_time = time.time()
+    try:
+        api_client = create_api_client()
+        result = get_today_time_blocks_impl(api_client, date)
+
+        return create_simple_response(
+            data=result,
+            summary_text=f"Retrieved {len(result)} time blocks",
+            api_endpoint="/todayTimeBlocks",
+            api_calls_made=1,
+            debug=debug,
+            start_time=start_time,
+        )
+    except Exception as e:
+        logger.exception("Failed to get time blocks")
+        return create_error_response(e, "/todayTimeBlocks", debug, start_time)
+
+
+@mcp.tool()
+async def get_habits(debug: bool = False) -> StandardResponse:
+    """Get all habits from Amazing Marvin."""
+    start_time = time.time()
+    try:
+        api_client = create_api_client()
+        result = get_habits_impl(api_client)
+
+        return create_simple_response(
+            data=result,
+            summary_text=f"Retrieved {len(result)} habits",
+            api_endpoint="/habits",
+            api_calls_made=1,
+            debug=debug,
+            start_time=start_time,
+        )
+    except Exception as e:
+        logger.exception("Failed to get habits")
+        return create_error_response(e, "/habits", debug, start_time)
+
+
+@mcp.tool()
+async def get_habit(habit_id: str, debug: bool = False) -> StandardResponse:
+    """Get a single habit with history from Amazing Marvin.
+
+    Args:
+        habit_id: Habit ID to retrieve
+    """
+    start_time = time.time()
+    try:
+        api_client = create_api_client()
+        result = get_habit_impl(api_client, habit_id)
+
+        return create_simple_response(
+            data=result,
+            summary_text=f"Retrieved habit {habit_id}",
+            api_endpoint="/habit",
+            api_calls_made=1,
+            debug=debug,
+            start_time=start_time,
+        )
+    except Exception as e:
+        logger.exception("Failed to get habit %s", habit_id)
+        return create_error_response(e, "/habit", debug, start_time)
+
+
+@mcp.tool()
+async def record_habit(
+    habit_id: str, value: int | None = None, debug: bool = False
+) -> StandardResponse:
+    """Record a habit occurrence in Amazing Marvin.
+
+    Args:
+        habit_id: Habit ID to record
+        value: Optional value for the habit (e.g., number of glasses of water)
+    """
+    start_time = time.time()
+    try:
+        api_client = create_api_client()
+        result = record_habit_impl(api_client, habit_id, value)
+
+        return create_simple_response(
+            data=result,
+            summary_text=f"Recorded habit {habit_id}",
+            api_endpoint="/updateHabit",
+            api_calls_made=1,
+            debug=debug,
+            start_time=start_time,
+        )
+    except Exception as e:
+        logger.exception("Failed to record habit %s", habit_id)
+        return create_error_response(e, "/updateHabit", debug, start_time)
+
+
+@mcp.tool()
+async def undo_habit(habit_id: str, debug: bool = False) -> StandardResponse:
+    """Undo last habit recording in Amazing Marvin.
+
+    Args:
+        habit_id: Habit ID to undo
+    """
+    start_time = time.time()
+    try:
+        api_client = create_api_client()
+        result = undo_habit_impl(api_client, habit_id)
+
+        return create_simple_response(
+            data=result,
+            summary_text=f"Undid last recording for habit {habit_id}",
+            api_endpoint="/updateHabit",
+            api_calls_made=1,
+            debug=debug,
+            start_time=start_time,
+        )
+    except Exception as e:
+        logger.exception("Failed to undo habit %s", habit_id)
+        return create_error_response(e, "/updateHabit", debug, start_time)
+
+
+@mcp.tool()
+async def set_reminders(
+    reminders: list[dict], debug: bool = False
+) -> StandardResponse:
+    """Set reminders in Amazing Marvin.
+
+    Args:
+        reminders: List of reminder dicts with taskId, reminderTime, and optional note
+    """
+    start_time = time.time()
+    try:
+        api_client = create_api_client()
+        result = set_reminders_impl(api_client, reminders)
+
+        return create_simple_response(
+            data=result,
+            summary_text=f"Set {len(reminders)} reminders",
+            api_endpoint="/reminder/set",
+            api_calls_made=1,
+            debug=debug,
+            start_time=start_time,
+        )
+    except Exception as e:
+        logger.exception("Failed to set reminders")
+        return create_error_response(e, "/reminder/set", debug, start_time)
+
+
+@mcp.tool()
+async def delete_reminders(
+    reminder_ids: list[str], debug: bool = False
+) -> StandardResponse:
+    """Delete specific reminders from Amazing Marvin.
+
+    Args:
+        reminder_ids: List of reminder IDs to delete
+    """
+    start_time = time.time()
+    try:
+        api_client = create_api_client()
+        result = delete_reminders_impl(api_client, reminder_ids)
+
+        return create_simple_response(
+            data=result,
+            summary_text=f"Deleted {len(reminder_ids)} reminders",
+            api_endpoint="/reminder/delete",
+            api_calls_made=1,
+            debug=debug,
+            start_time=start_time,
+        )
+    except Exception as e:
+        logger.exception("Failed to delete reminders")
+        return create_error_response(e, "/reminder/delete", debug, start_time)
+
+
+@mcp.tool()
+async def spend_reward_points(
+    points: int, date: str, debug: bool = False
+) -> StandardResponse:
+    """Spend reward points in Amazing Marvin.
+
+    Args:
+        points: Number of points to spend
+        date: Date in YYYY-MM-DD format
+    """
+    start_time = time.time()
+    try:
+        api_client = create_api_client()
+        result = spend_reward_points_impl(api_client, points, date)
+
+        return create_simple_response(
+            data=result,
+            summary_text=f"Spent {points} reward points",
+            api_endpoint="/spendRewardPoints",
+            api_calls_made=1,
+            debug=debug,
+            start_time=start_time,
+        )
+    except Exception as e:
+        logger.exception("Failed to spend reward points")
+        return create_error_response(e, "/spendRewardPoints", debug, start_time)
+
+
+@mcp.tool()
+async def unclaim_reward_points(
+    item_id: str, date: str, debug: bool = False
+) -> StandardResponse:
+    """Unclaim reward points for an item in Amazing Marvin.
+
+    Args:
+        item_id: Item ID to unclaim points for
+        date: Date in YYYY-MM-DD format
+    """
+    start_time = time.time()
+    try:
+        api_client = create_api_client()
+        result = unclaim_reward_points_impl(api_client, item_id, date)
+
+        return create_simple_response(
+            data=result,
+            summary_text=f"Unclaimed reward points for item {item_id}",
+            api_endpoint="/unclaimRewardPoints",
+            api_calls_made=1,
+            debug=debug,
+            start_time=start_time,
+        )
+    except Exception as e:
+        logger.exception("Failed to unclaim reward points")
+        return create_error_response(e, "/unclaimRewardPoints", debug, start_time)
 
 
 def start():

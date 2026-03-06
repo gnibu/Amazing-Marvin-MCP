@@ -80,4 +80,4 @@ name = "amazing-marvin-mcp"
 display_name = "Amazing Marvin MCP"
 description = "Model Context Provider for Amazing Marvin productivity app"
 entry_point = "amazing_marvin_mcp.main:start"
-environment_variables = ["AMAZING_MARVIN_API_KEY"]
+environment_variables = ["AMAZING_MARVIN_API_KEY", "AMAZING_MARVIN_FULL_ACCESS_TOKEN"]

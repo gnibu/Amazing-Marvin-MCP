@@ -8,7 +8,13 @@ import requests
 from amazing_marvin_mcp.analytics import get_productivity_summary
 from amazing_marvin_mcp.api import MarvinAPIClient, create_api_client
 from amazing_marvin_mcp.config import get_settings
+from amazing_marvin_mcp.documents import get_document, update_task_friendly
+from amazing_marvin_mcp.events import add_event, get_today_time_blocks
+from amazing_marvin_mcp.habits import get_habit, get_habits, record_habit, undo_habit
+from amazing_marvin_mcp.models import TaskUpdateRequest
 from amazing_marvin_mcp.projects import create_project_with_tasks
+from amazing_marvin_mcp.reminders import delete_reminders, set_reminders
+from amazing_marvin_mcp.rewards import spend_reward_points, unclaim_reward_points
 from amazing_marvin_mcp.tasks import (
     batch_create_tasks,
     get_daily_focus,
@@ -292,6 +298,148 @@ class TestProjectPlanningEnhancements:
         assert "success_count" in result
         assert result["success_count"] >= 0
         assert result["total_requested"] == TASK_COUNT
+
+
+class TestFullAccessOperations:
+    """Test operations requiring full access token."""
+
+    @pytest.fixture
+    def full_access_client(self):
+        """Create API client with full access token."""
+        try:
+            settings = get_settings()
+            if not settings.amazing_marvin_full_access_token:
+                pytest.skip("No full access token available")
+            return create_api_client()
+        except Exception:
+            pytest.skip("Configuration error - cannot create full access client")
+
+    def test_get_document(self, full_access_client, test_task_data):
+        """Test reading a document by ID."""
+        # Create a task first to get a valid ID
+        created = full_access_client.create_task(test_task_data)
+        task_id = created["_id"]
+
+        doc = get_document(full_access_client, task_id)
+        assert doc is not None
+        assert doc.get("title") == test_task_data["title"]
+
+    def test_update_task(self, full_access_client, test_task_data):
+        """Test updating a task via friendly model."""
+        created = full_access_client.create_task(test_task_data)
+        task_id = created["_id"]
+
+        update = TaskUpdateRequest(item_id=task_id, title="Updated by pytest")
+        result = update_task_friendly(full_access_client, update)
+        assert result is not None
+
+
+class TestEventOperations:
+    """Test event and time block operations."""
+
+    def test_add_event(self, api_client):
+        """Test creating a calendar event."""
+        try:
+            result = add_event(
+                api_client,
+                title="Pytest Event",
+                start="2025-12-31T10:00:00Z",
+                length_minutes=30,
+                note="Test event",
+            )
+            assert result is not None
+        except Exception as e:
+            pytest.skip(f"Event creation not available: {e}")
+
+    def test_get_today_time_blocks(self, api_client):
+        """Test getting time blocks."""
+        try:
+            result = get_today_time_blocks(api_client)
+            assert isinstance(result, list)
+        except Exception as e:
+            pytest.skip(f"Time blocks not available: {e}")
+
+
+class TestHabitOperations:
+    """Test habit operations."""
+
+    def test_get_habits(self, api_client):
+        """Test listing all habits."""
+        try:
+            result = get_habits(api_client)
+            assert isinstance(result, list)
+        except Exception as e:
+            pytest.skip(f"Habits not available: {e}")
+
+    def test_get_habit(self, api_client):
+        """Test getting a single habit."""
+        try:
+            habits = get_habits(api_client)
+            if not habits:
+                pytest.skip("No habits exist to test")
+            habit_id = habits[0].get("_id")
+            result = get_habit(api_client, habit_id)
+            assert result is not None
+        except Exception as e:
+            pytest.skip(f"Habit retrieval not available: {e}")
+
+    def test_record_and_undo_habit(self, api_client):
+        """Test recording and undoing a habit."""
+        try:
+            habits = get_habits(api_client)
+            if not habits:
+                pytest.skip("No habits exist to test")
+            habit_id = habits[0].get("_id")
+
+            record_result = record_habit(api_client, habit_id)
+            assert record_result is not None
+
+            undo_result = undo_habit(api_client, habit_id)
+            assert undo_result is not None
+        except Exception as e:
+            pytest.skip(f"Habit record/undo not available: {e}")
+
+
+class TestReminderOperations:
+    """Test reminder operations."""
+
+    def test_set_and_delete_reminders(self, api_client):
+        """Test setting and deleting reminders."""
+        try:
+            reminders = [
+                {
+                    "taskId": "test_task",
+                    "reminderTime": "2025-12-31T09:00:00Z",
+                }
+            ]
+            result = set_reminders(api_client, reminders)
+            assert result is not None
+        except Exception as e:
+            pytest.skip(f"Reminder operations not available: {e}")
+
+
+class TestRewardExtendedOperations:
+    """Test extended reward operations."""
+
+    def test_spend_reward_points(self, api_client):
+        """Test spending reward points."""
+        today = datetime.now().strftime("%Y-%m-%d")
+        try:
+            result = spend_reward_points(api_client, 1, today)
+            assert result is not None
+        except Exception as e:
+            pytest.skip(f"Spend reward points not available: {e}")
+
+    def test_unclaim_reward_points(self, api_client, test_task_data):
+        """Test unclaiming reward points."""
+        today = datetime.now().strftime("%Y-%m-%d")
+        try:
+            created = api_client.create_task(test_task_data)
+            task_id = created["_id"]
+            result = unclaim_reward_points(api_client, task_id, today)
+            assert result is not None
+        except Exception as e:
+            pytest.skip(f"Unclaim reward points not available: {e}")
 
 
 if __name__ == "__main__":

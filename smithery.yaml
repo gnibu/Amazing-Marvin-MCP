@@ -11,6 +11,7 @@ local:
   args: ["-m", "amazing_marvin_mcp"]
   environment_variables:
     - AMAZING_MARVIN_API_KEY
+    - AMAZING_MARVIN_FULL_ACCESS_TOKEN
     - MCP_TRANSPORT=http
     - MCP_HOST=localhost
     - MCP_PORT=8000
@@ -22,6 +23,7 @@ remote:
   entry_point: "amazing_marvin_mcp.main:start"
   environment_variables:
     - AMAZING_MARVIN_API_KEY
+    - AMAZING_MARVIN_FULL_ACCESS_TOKEN
     - MCP_TRANSPORT=http
     - MCP_HOST=0.0.0.0
     - MCP_PORT=8000
