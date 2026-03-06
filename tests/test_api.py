@@ -333,6 +333,33 @@ class TestFullAccessOperations:
         result = update_task_friendly(full_access_client, update)
         assert result is not None
 
+        # Re-read the task to verify the update persisted
+        doc = get_document(full_access_client, task_id)
+        assert doc is not None
+        assert doc.get("title") == "Updated by pytest"
+
+    def test_update_task_note(self, full_access_client, test_task_data):
+        """Test updating a task's note."""
+        created = full_access_client.create_task(test_task_data)
+        task_id = created["_id"]
+
+        update = TaskUpdateRequest(item_id=task_id, note="Note updated by pytest")
+        update_task_friendly(full_access_client, update)
+
+        doc = get_document(full_access_client, task_id)
+        assert doc.get("note") == "Note updated by pytest"
+
+    def test_update_task_scheduled_date(self, full_access_client, test_task_data):
+        """Test updating a task's scheduled date."""
+        created = full_access_client.create_task(test_task_data)
+        task_id = created["_id"]
+
+        update = TaskUpdateRequest(item_id=task_id, scheduled_date="2026-04-01")
+        update_task_friendly(full_access_client, update)
+
+        doc = get_document(full_access_client, task_id)
+        assert doc.get("day") == "2026-04-01"
+
 
 class TestEventOperations:
     """Test event and time block operations."""
