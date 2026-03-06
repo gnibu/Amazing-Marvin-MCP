@@ -242,7 +242,7 @@ class MarvinAPIClient:
         """Create a new project (experimental endpoint)"""
         return self._make_request("post", "/addProject", data=project_data)
 
-    def update_task(self, item_id: str, setters: dict) -> dict:
+    def update_task(self, item_id: str, setters: list[dict] | dict) -> dict:
         """Update a task using setters format (requires full access token)."""
         return self.update_document(item_id, setters)
 
@@ -252,9 +252,19 @@ class MarvinAPIClient:
         """Read any document by ID (requires full access token)."""
         return self._make_request("get", f"/doc?id={doc_id}", use_full_access=True)
 
-    def update_document(self, item_id: str, setters: dict) -> dict:
-        """Update a document using setters format (requires full access token)."""
-        data = {"itemId": item_id, **setters}
+    def update_document(self, item_id: str, setters: list[dict] | dict) -> dict:
+        """Update a document using setters format (requires full access token).
+
+        Args:
+            item_id: Document ID to update.
+            setters: List of {"key": ..., "val": ...} dicts, or a raw dict
+                     that will be passed as-is for backwards compatibility.
+        """
+        if isinstance(setters, list):
+            data: dict = {"itemId": item_id, "setters": setters}
+        else:
+            # Legacy dict format: spread into payload for raw usage
+            data = {"itemId": item_id, **setters}
         return self._make_request("post", "/doc/update", data=data, use_full_access=True)
 
     # --- Standard Token Methods ---

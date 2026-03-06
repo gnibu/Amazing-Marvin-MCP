@@ -8,6 +8,11 @@ from amazing_marvin_mcp.setters_builder import build_setters
 FROZEN_TIME_MS = 1700000000000
 
 
+def _setters_to_dict(setters: list[dict]) -> dict:
+    """Helper to convert setters list to a flat dict for easier assertions."""
+    return {s["key"]: s["val"] for s in setters}
+
+
 class TestBuildSetters:
     """Test conversion from TaskUpdateRequest to Marvin setters format."""
 
@@ -17,10 +22,11 @@ class TestBuildSetters:
         update = TaskUpdateRequest(item_id="task1", title="New Title")
         result = build_setters(update)
 
-        assert "$set" in result
-        assert result["$set"]["title"] == "New Title"
-        assert result["$set"]["updatedAt"] == FROZEN_TIME_MS
-        assert result["$set"]["fieldUpdates"]["title"] == FROZEN_TIME_MS
+        assert isinstance(result, list)
+        values = _setters_to_dict(result)
+        assert values["title"] == "New Title"
+        assert values["updatedAt"] == FROZEN_TIME_MS
+        assert values["fieldUpdates.title"] == FROZEN_TIME_MS
 
     @patch("amazing_marvin_mcp.setters_builder.time")
     def test_due_date_maps_correctly(self, mock_time):
@@ -28,7 +34,8 @@ class TestBuildSetters:
         update = TaskUpdateRequest(item_id="task1", due_date="2025-12-31")
         result = build_setters(update)
 
-        assert result["$set"]["dueDate"] == "2025-12-31"
+        values = _setters_to_dict(result)
+        assert values["dueDate"] == "2025-12-31"
 
     @patch("amazing_marvin_mcp.setters_builder.time")
     def test_scheduled_date_maps_to_day(self, mock_time):
@@ -36,7 +43,8 @@ class TestBuildSetters:
         update = TaskUpdateRequest(item_id="task1", scheduled_date="2025-12-30")
         result = build_setters(update)
 
-        assert result["$set"]["day"] == "2025-12-30"
+        values = _setters_to_dict(result)
+        assert values["day"] == "2025-12-30"
 
     @patch("amazing_marvin_mcp.setters_builder.time")
     def test_time_estimate_converts_to_ms(self, mock_time):
@@ -44,8 +52,9 @@ class TestBuildSetters:
         update = TaskUpdateRequest(item_id="task1", time_estimate=30)
         result = build_setters(update)
 
+        values = _setters_to_dict(result)
         # 30 minutes * 60 seconds * 1000 ms
-        assert result["$set"]["timeEstimate"] == 30 * 60 * 1000
+        assert values["timeEstimate"] == 30 * 60 * 1000
 
     @patch("amazing_marvin_mcp.setters_builder.time")
     def test_boolean_fields(self, mock_time):
@@ -55,9 +64,10 @@ class TestBuildSetters:
         )
         result = build_setters(update)
 
-        assert result["$set"]["isStarred"] is True
-        assert result["$set"]["isFrogged"] is False
-        assert result["$set"]["backburner"] is True
+        values = _setters_to_dict(result)
+        assert values["isStarred"] is True
+        assert values["isFrogged"] is False
+        assert values["backburner"] is True
 
     @patch("amazing_marvin_mcp.setters_builder.time")
     def test_none_fields_excluded(self, mock_time):
@@ -65,11 +75,11 @@ class TestBuildSetters:
         update = TaskUpdateRequest(item_id="task1", title="Only Title")
         result = build_setters(update)
 
-        set_values = result["$set"]
-        assert "dueDate" not in set_values
-        assert "day" not in set_values
-        assert "note" not in set_values
-        assert "labelIds" not in set_values
+        values = _setters_to_dict(result)
+        assert "dueDate" not in values
+        assert "day" not in values
+        assert "note" not in values
+        assert "labelIds" not in values
 
     @patch("amazing_marvin_mcp.setters_builder.time")
     def test_label_ids(self, mock_time):
@@ -77,7 +87,8 @@ class TestBuildSetters:
         update = TaskUpdateRequest(item_id="task1", label_ids=["lbl1", "lbl2"])
         result = build_setters(update)
 
-        assert result["$set"]["labelIds"] == ["lbl1", "lbl2"]
+        values = _setters_to_dict(result)
+        assert values["labelIds"] == ["lbl1", "lbl2"]
 
     @patch("amazing_marvin_mcp.setters_builder.time")
     def test_multiple_fields(self, mock_time):
@@ -91,12 +102,13 @@ class TestBuildSetters:
         )
         result = build_setters(update)
 
-        set_values = result["$set"]
-        assert set_values["title"] == "Updated"
-        assert set_values["dueDate"] == "2025-12-31"
-        assert set_values["note"] == "Notes here"
-        assert set_values["priority"] == "high"
-        assert len(result["$set"]["fieldUpdates"]) == 4
+        values = _setters_to_dict(result)
+        assert values["title"] == "Updated"
+        assert values["dueDate"] == "2025-12-31"
+        assert values["note"] == "Notes here"
+        assert values["priority"] == "high"
+        # 4 fields + 4 fieldUpdates + 1 updatedAt = 9 entries
+        assert len(result) == 9
 
     @patch("amazing_marvin_mcp.setters_builder.time")
     def test_no_updates_still_has_updated_at(self, mock_time):
@@ -104,5 +116,7 @@ class TestBuildSetters:
         update = TaskUpdateRequest(item_id="task1")
         result = build_setters(update)
 
-        assert result["$set"]["updatedAt"] == FROZEN_TIME_MS
-        assert "fieldUpdates" not in result["$set"]
+        values = _setters_to_dict(result)
+        assert values["updatedAt"] == FROZEN_TIME_MS
+        # Only updatedAt, no fieldUpdates entries
+        assert len(result) == 1
